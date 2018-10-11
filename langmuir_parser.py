@@ -17,8 +17,10 @@ def get_parameters():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('files', type=str, nargs='+', help="CSV Files to process")
+    parser.add_argument('-c, --concatenate', dest="concatenate", action="store_true", help="Concatenate all files in one")
     parser.add_argument('-a, --animate', dest="animate", action="store_true", help="Show an animated plot")
     parser.add_argument('-s, --save', dest="save", action="store_true", help="Save figure")
+    parser.add_argument('-l', '--list', dest="color_min_max", nargs=6, help='Colobar range min and max for each graphic')
 
     return parser.parse_args()
 
@@ -80,7 +82,7 @@ def add_plasma(dateset):
     return dataset
 
 
-def plot_map(dataset, title, columns, save, show, min, max):
+def plot_map(dataset, title, columns, save, show, minmax_list, min, max):
     """
     Plots each column of a Pandas DataFrame that contains the columns "Long"
     and "Lat" over a Earth map. Optionally saves the plot to disk or just
@@ -90,6 +92,7 @@ def plot_map(dataset, title, columns, save, show, min, max):
     :param title: Str. Dataset title
     :param save: Bool. Save the figure
     :param show: Bool. Show the plot
+    :param minmax_list: List. Contains min and max of each graphic
     :param min: Float. Global min to set the colorbar range
     :param max: Float. Global max to set the colorbar range
     :return: None
@@ -97,13 +100,17 @@ def plot_map(dataset, title, columns, save, show, min, max):
     # scales = [1, 1e9, 1e-9, 1e-9]
     # min, max = min[columns], max[columns]
 
+    minmax_ind = 0
+
     for column in columns:
         data = dataset[column]
+        #print(data.min())
+        #print(data.max())
         # Set world axes
         fig = plt.figure(figsize=(1024 / 96, 768 / 96), dpi=96)
         ax = plt.axes(projection=ccrs.PlateCarree())
-        # ax.coastlines()
-        ax.stock_img()
+        ax.coastlines()
+        #ax.stock_img()
         gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
                           linewidth=1, color='gray', alpha=0.5,
                           linestyle='--')
@@ -122,9 +129,15 @@ def plot_map(dataset, title, columns, save, show, min, max):
         plt.title(column + "\n" + "".join(title))
 
         # Plot as scatter
-        plt.scatter(dataset["Lon"], dataset["Lat"], c=dataset[column], s=17, cmap="plasma")
+        plt.scatter(dataset["Lon"], dataset["Lat"], c=dataset[column], s=20, cmap="plasma", alpha=0.5, linewidths=0, edgecolors=None)
         colorbar = plt.colorbar()
         colorbar.set_label(column)
+
+        # Set colorbar scale
+        if minmax_list:
+            plt.clim(minmax_list[minmax_ind * 2], minmax_list[minmax_ind * 2 + 1])
+            minmax_ind+=1
+
 
         # Finally plot
         if save:
@@ -135,7 +148,7 @@ def plot_map(dataset, title, columns, save, show, min, max):
         plt.close()
 
 
-def plot_map_animated(dataset, title, columns, save, show, min, max):
+def plot_map_animated(dataset, title, columns, save, show, minmax_list, min, max):
     """
         Plots each column of a Pandas DataFrame that contains the columns "Long"
         and "Lat" over a Earth map. Optionally saves the plot to disk or just
@@ -145,12 +158,14 @@ def plot_map_animated(dataset, title, columns, save, show, min, max):
         :param title: Str. Dataset title
         :param save: Bool. Save the figure
         :param show: Bool. Show the plot
+        :param minmax_list: List. Contains min and max of each graphic
         :param min: Float. Global min to set the colorbar range
         :param max: Float. Global max to set the colorbar range
         :return: None
         """
     # scales = [1, 1e9, 1e-9, 1e-9]
     # min, max = min[columns], max[columns]
+    minmax_ind = 0
 
     for column in columns:
         data = dataset[column]
@@ -175,14 +190,30 @@ def plot_map_animated(dataset, title, columns, save, show, min, max):
         plt.title(column + "\n" + "".join(title))
 
         ims = []
+
         for i in range(len(dataset)):
             row = dataset.iloc[0:i + 1]
             data = row[column]
 
+            # Set colorbar scale
+            if minmax_list:
+                plt.clim(minmax_list[minmax_ind * 2], minmax_list[minmax_ind * 2 + 1])
+
             # Plot data as scatter
-            ims.append((plt.scatter(row["Lon"], row["Lat"], c=data, s=17, cmap="plasma"),))
+            ims.append((plt.scatter(row["Lon"], row["Lat"], c=data, s=17, cmap="plasma", alpha=0.5),))
+
+        colorbar = plt.colorbar()
+        colorbar.set_label(column)
+
+        """# Set colorbar scale
+        if minmax_list:
+            plt.clim(minmax_list[minmax_ind * 2], minmax_list[minmax_ind * 2 + 1])"""
 
         im_ani = animation.ArtistAnimation(fig, ims, interval=16, blit=True, repeat=False)
+
+        # Set colorbar scale
+        if minmax_list:
+            plt.clim(minmax_list[minmax_ind * 2], minmax_list[minmax_ind * 2 + 1])
 
         # Finally plot
         if save:
@@ -191,6 +222,8 @@ def plot_map_animated(dataset, title, columns, save, show, min, max):
 
         plt.show()
         plt.close()
+
+        minmax_ind += 1
 
 def read_datafile(filename):
     """
@@ -219,6 +252,18 @@ def read_datafile(filename):
     dataset = pd.read_csv(filename, header=0, skiprows=(1, 2, 3, 4), skipfooter=4)
     return dataset
 
+def concatenate(files):
+    """Concatenates all files in one and reads it as one langmuir csv file
+    ::param files: Array of strings (names of files) to read
+    :return: DataFrame A Pandas DataFrame with the file data
+    """
+    frames = []
+    i = 0
+    for filename in files:
+        frames.append(read_datafile(filename))
+        i += 1
+    dataset = pd.concat(frames)
+    return dataset
 
 """
 MAIN FUNCTION
@@ -227,12 +272,30 @@ if __name__ == "__main__":
     args = get_parameters()
 
     # Process each file
-    for filename in args.files:
-        dataset = read_datafile(filename)
+    if not args.concatenate:
+        for filename in args.files:
+            dataset = read_datafile(filename)
+            tle = get_tle()
+            dataset = add_long_lat(dataset, tle)
+            dataset = add_plasma(dataset)
+            if args.animate:
+                plot_map_animated(dataset, filename, ["Particles counter", "Plasma current", "Electron density 300K"], args.save, True, args.color_min_max, 0, 0)
+            else:
+                plot_map(dataset, filename, ["Particles counter", "Plasma current", "Electron density 300K"], args.save, True,
+                    args.color_min_max, 0, 0)
+
+    #Process all files in one
+    else:
+        dataset = concatenate(args.files)
         tle = get_tle()
         dataset = add_long_lat(dataset, tle)
         dataset = add_plasma(dataset)
         if args.animate:
-            plot_map_animated(dataset, filename, ["Particles counter", "Plasma current", "Electron density 300K"], args.save, True, 0, 0)
+            plot_map_animated(dataset, "", ["Particles counter", "Plasma current", "Electron density 300K"],
+                              args.save, True, args.color_min_max, 0, 0)
         else:
-            plot_map(dataset, filename, ["Particles counter", "Plasma current", "Electron density 300K"], args.save, True, 0, 0)
+            print(args.files[0])
+            plot_map(dataset, "", ["Particles counter", "Plasma current", "Electron density 300K"], args.save,
+                     True,
+                     args.color_min_max, 0, 0)
+
