@@ -147,6 +147,159 @@ def plot_map(dataset, title, columns, save, show, minmax_list, min, max):
 
         plt.close()
 
+def add_is_anomaly(dataset, threshold):
+
+    """
+        Appends a column that sorts out the particles counter
+        values (greater or lower than a threshold) to a dataset that contains
+        a "Particles counter" column.
+        :param dataset: DataFrame Dataset with a "Particles counter" column
+        :return: DataFrame with is_anomaly column added
+        """
+
+    particles = dataset['Particles counter']
+    is_anomaly = []
+
+    for row in particles:
+        if row >= threshold:
+            is_anomaly.append(1)
+        else:
+            is_anomaly.append(0)
+
+    dataset["is_anom"] = is_anomaly
+
+    return dataset
+
+def make_in_max_out(dataset):
+
+    # time column as datetime
+    dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
+
+    # sort dataset by time
+    dataset = dataset.sort_values(by=['time'])
+
+    is_anom = dataset['is_anom']
+    i = 0
+
+    #create empty list and empty datasets
+    arr = []
+    aux_dataset = pd.DataFrame(columns=dataset.columns.values)
+    final_dataset = pd.DataFrame(columns=dataset.columns.values)
+    print(is_anom.count())
+
+    #iterate through rows to find enter, max and out points(of the anomaly)
+    while i < is_anom.count():
+        print is_anom.iloc[i]
+        print(i)
+        while i < is_anom.count() and is_anom.iloc[i] == 1:
+            arr.append(dataset.iloc[[i]])
+            i += 1
+        if len(arr) != 0:
+            print(" ")
+            print("array is")
+            print(arr)
+            print(" ")
+
+            #concat datasets inside arr to aux_dataset
+            aux_dataset = aux_dataset.append(arr)
+            #print(aux_dataset)
+
+            #get row with the max number of particles inside
+            aux_dataset['Particles counter'] = aux_dataset['Particles counter'].astype('float64')
+            row = aux_dataset.loc[aux_dataset['Particles counter'].idxmax()]
+
+            #detect duplicates
+            final_dataset =final_dataset.append([arr[0], arr[len(arr) - 1], row])
+
+            #reset list and aux_dataset
+            arr = []
+            aux_dataset = pd.DataFrame(columns=dataset.columns.values)
+        else:
+            i += 1
+    return final_dataset
+
+def plot_lat_in_time(dataset):
+    i = 0
+    while i < dataset['time'].count():
+        print(dataset['time'].iloc[i])
+        i+=1
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                      linewidth=1, color='gray', alpha=0.5,
+                      linestyle='--')
+    gl.xlabels_top = False
+    gl.ylabels_right = False
+    gl.xformatter = LATITUDE_FORMATTER
+    dataset.plot(x='time', y='Lat', style=".")
+    plt.show()
+
+"""def plot_part_in_threshold(dataset, title, columns, save, show, minmax_list, threshold):
+
+    #time column as datetime
+    dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
+
+    #sort dataset by time
+    dataset = dataset.sort_values(by=['time'])
+
+    #add is_anomaly column
+    dataset = add_is_anomaly(dataset, threshold)
+
+    #filter rows where is_anomaly value is True or 1
+    in_threshold = dataset['is_anom'] == 1
+    dataset = dataset[in_threshold]
+    print(dataset)
+
+    minmax_ind = 0
+
+    #plot
+    for column in columns:
+        data = dataset[column]
+        # Set world axes
+        fig = plt.figure(figsize=(1024 / 96, 768 / 96), dpi=96)
+        ax = plt.axes(projection=ccrs.PlateCarree())
+        plt.xlim(-180, 180)
+        plt.ylim(-90, 90)
+        ax.coastlines()
+        #ax.stock_img()
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                          linewidth=1, color='gray', alpha=0.5,
+                          linestyle='--')
+        gl.xlabels_top = False
+        gl.ylabels_right = False
+        gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+
+
+        # Plot certain places as black triangles
+        plt.scatter(-76.704, -11.739, c="k", marker="^",s=4)  # Jicamarca, Peru
+        plt.scatter(-71.488, 42.623, c="k", marker="^", s=4)  # MIT Haystack, EEUU
+        plt.scatter(-66.752, 18.344, c="k", marker="^", s=4)  # Arecibo, Puerto Rico
+        plt.scatter(-94.829, 74.697, c="k", marker="^", s=4)  # Resolute Bay, Canada
+        plt.scatter(-147.488, 65.125, c="k", marker="^", s=4)  # Poker Flat, Alaska
+
+        plt.title(column + "\n" + "".join(title))
+
+        if not dataset.empty:
+            # Plot as scatter
+            plt.scatter(dataset["Lon"], dataset["Lat"], c=dataset[column], s=20, cmap="plasma", alpha=0.5, linewidths=0, edgecolors=None)
+            colorbar = plt.colorbar()
+            colorbar.set_label(column)
+
+            # Set colorbar scale
+            if minmax_list:
+                plt.clim(minmax_list[minmax_ind * 2], minmax_list[minmax_ind * 2 + 1])
+                minmax_ind+=1
+
+
+        # Finally plot
+        if save:
+            plt.savefig("".join(title) + "-" + column + ".png", dpi=96)
+        if show:
+            plt.show()
+
+        plt.close()
+"""
+
 
 def plot_map_animated(dataset, title, columns, save, show, minmax_list, min, max):
     """
@@ -278,11 +431,15 @@ if __name__ == "__main__":
             tle = get_tle()
             dataset = add_long_lat(dataset, tle)
             dataset = add_plasma(dataset)
+            dataset = add_is_anomaly(dataset, 600)
             if args.animate:
                 plot_map_animated(dataset, filename, ["Particles counter", "Plasma current", "Electron density 300K"], args.save, True, args.color_min_max, 0, 0)
             else:
                 plot_map(dataset, filename, ["Particles counter", "Plasma current", "Electron density 300K"], args.save, True,
                     args.color_min_max, 0, 0)
+                dataset = make_in_max_out(dataset)
+                plot_lat_in_time(dataset)
+                #plot_part_in_threshold(dataset, filename, ["Particles counter"], args.save, True, args.color_min_max, 600)
 
     #Process all files in one
     else:
@@ -298,4 +455,5 @@ if __name__ == "__main__":
             plot_map(dataset, "", ["Particles counter", "Plasma current", "Electron density 300K"], args.save,
                      True,
                      args.color_min_max, 0, 0)
+            #plot_part_in_threshold(dataset, "", ["Particles counter"], args.save, True, args.color_min_max, 600)
 
