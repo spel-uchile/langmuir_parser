@@ -8,6 +8,7 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import matplotlib.dates as mdates
 
 def get_parameters():
     """
@@ -185,32 +186,34 @@ def make_in_max_out(dataset):
     arr = []
     aux_dataset = pd.DataFrame(columns=dataset.columns.values)
     final_dataset = pd.DataFrame(columns=dataset.columns.values)
-    print(is_anom.count())
 
     #iterate through rows to find enter, max and out points(of the anomaly)
     while i < is_anom.count():
-        print is_anom.iloc[i]
-        print(i)
         while i < is_anom.count() and is_anom.iloc[i] == 1:
             arr.append(dataset.iloc[[i]])
             i += 1
         if len(arr) != 0:
-            print(" ")
-            print("array is")
-            print(arr)
-            print(" ")
 
             #concat datasets inside arr to aux_dataset
-            aux_dataset = aux_dataset.append(arr)
+            final_arr = pd.concat(arr, sort=False)
+            aux_dataset = pd.concat([aux_dataset, final_arr], sort=False) #aux_dataset.append(arr)
             #print(aux_dataset)
 
             #get row with the max number of particles inside
             aux_dataset['Particles counter'] = aux_dataset['Particles counter'].astype('float64')
-            row = aux_dataset.loc[aux_dataset['Particles counter'].idxmax()]
-
+            penultimate = aux_dataset['Particles counter'].count() - 1
+            aux_dataset = aux_dataset.iloc[1:penultimate]
+            if not aux_dataset.empty:
+                row = aux_dataset.loc[aux_dataset['Particles counter'].idxmax()]
+                row = pd.DataFrame([row])
             #detect duplicates
-            final_dataset =final_dataset.append([arr[0], arr[len(arr) - 1], row])
-
+            if aux_dataset.empty:
+               if 0 == len(arr) - 1:
+                   final_dataset = pd.concat([final_dataset, arr[0]], ignore_index=True, sort=False) #final_dataset.append([arr[0]])
+               else:
+                   final_dataset = pd.concat([final_dataset, arr[0], arr[len(arr) - 1]], ignore_index=True, sort=False) #final_dataset.append([arr[0], arr[len(arr) - 1]])
+            else:
+                final_dataset = pd.concat([final_dataset, arr[0], arr[len(arr) - 1], row], ignore_index=True, sort=False) #final_dataset.append([arr[0], arr[len(arr) - 1], row])
             #reset list and aux_dataset
             arr = []
             aux_dataset = pd.DataFrame(columns=dataset.columns.values)
@@ -218,22 +221,126 @@ def make_in_max_out(dataset):
             i += 1
     return final_dataset
 
-def plot_lat_in_time(dataset):
-    i = 0
-    while i < dataset['time'].count():
-        print(dataset['time'].iloc[i])
-        i+=1
-    ax = plt.axes(projection=ccrs.PlateCarree())
-    gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                      linewidth=1, color='gray', alpha=0.5,
-                      linestyle='--')
-    gl.xlabels_top = False
-    gl.ylabels_right = False
-    gl.xformatter = LATITUDE_FORMATTER
-    dataset.plot(x='time', y='Lat', style=".")
-    plt.show()
+"""def plot_lat_in_time(dataset, threshold, title, save, show):
+    # time column as datetime
+    dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
 
-"""def plot_part_in_threshold(dataset, title, columns, save, show, minmax_list, threshold):
+    # sort dataset by time
+    dataset = dataset.sort_values(by=['time'])
+
+    # add is_anomaly column
+    dataset = add_is_anomaly(dataset, threshold)
+
+    # filter rows where is_anomaly value is True or 1
+    in_threshold = dataset['is_anom'] == 1
+    dataset = dataset[in_threshold]
+    dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
+
+    new_dataset = pd.Dataframe(dataset["Lat"], index=dataset["time"])
+    minmax_ind = 0
+
+    # plot
+    for column in ["Lat"]:
+        data = new_dataset[column]
+        # Set world axes
+        fig = plt.figure(figsize=(1024 / 96, 768 / 96), dpi=96)
+        ax = plt.subplots()
+        #ax = plt.axes(projection=ccrs.PlateCarree())
+        #ax.plot_date(x=dataset["time"], y=dataset["Lat"], marker='o')
+        # plt.xlim(-180, 180)
+        # plt.ylim(-90, 90)
+        # ax.coastlines()
+        # #ax.stock_img()
+        # gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+        #                   linewidth=1, color='gray', alpha=0.5,
+        #                   linestyle='--')
+        # gl.xlabels_top = False
+        # gl.ylabels_right = False
+        # gl.xformatter = LONGITUDE_FORMATTER
+        # gl.yformatter = LATITUDE_FORMATTER
+        #
+        #
+        # # Plot certain places as black triangles
+        # plt.scatter(-76.704, -11.739, c="k", marker="^",s=4)  # Jicamarca, Peru
+        # plt.scatter(-71.488, 42.623, c="k", marker="^", s=4)  # MIT Haystack, EEUU
+        # plt.scatter(-66.752, 18.344, c="k", marker="^", s=4)  # Arecibo, Puerto Rico
+        # plt.scatter(-94.829, 74.697, c="k", marker="^", s=4)  # Resolute Bay, Canada
+        # plt.scatter(-147.488, 65.125, c="k", marker="^", s=4)  # Poker Flat, Alaska
+
+        plt.title(column + "\n" + "".join(title))
+
+        if not new_dataset.empty:
+            # Plot as scatter
+            # plt.scatter(dataset["Lon"], dataset["Lat"], c=dataset[column], s=20, cmap="plasma", alpha=0.5, linewidths=0, edgecolors=None)
+            # plt.scatter(list(range(0, len(dataset))), dataset["Lat"], c=dataset[column], s=20, cmap="plasma", alpha=0.5,
+            #            linewidths=0, edgecolors=None)
+            #new_dataset.plot(x="time", y="Lat", style=".")
+            ax.plot(new_dataset.index, new_dataset.values)
+            ax.set_xticks(new_dataset.index)
+
+
+            #plt.scatter(dataset["time"], dataset["Lat"], c=dataset[column], s=20, cmap="plasma", alpha=0.5, linewidths=0, edgecolors=None)
+            #colorbar = plt.colorbar()
+            #colorbar.set_label(column)
+
+            # Set colorbar scale
+            #if minmax_list:
+            #    plt.clim(minmax_list[minmax_ind * 2], minmax_list[minmax_ind * 2 + 1])
+            #    minmax_ind += 1
+
+        # Finally plot
+        if save:
+            plt.savefig("".join(title) + "-" + column + ".png", dpi=96)
+        if show:
+            plt.show()
+        print (dataset['time'])
+
+        plt.close()"""
+
+def plot_lat_in_time(dataset, threshold, title, save, show):
+    # time column as datetime
+    dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
+
+    # sort dataset by time
+    dataset = dataset.sort_values(by=['time'])
+
+    # add is_anomaly column
+    dataset = add_is_anomaly(dataset, threshold)
+
+    # filter rows where is_anomaly value is True or 1
+    in_threshold = dataset['is_anom'] == 1
+    dataset = dataset[in_threshold]
+    dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
+
+    minmax_ind = 0
+
+    #make columns
+    lat = dataset["Lat"]
+    time = dataset["time"]
+
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M:%S'))
+
+    # plot
+    plt.plot(time, lat, 'ro', markersize=0.5)
+    # beautify the x-labels
+    plt.gcf().autofmt_xdate()
+    _ = plt.xticks(rotation=90)
+
+    #set y axis range and grid
+    plt.ylim((-90, 90))
+    ax = plt.gca()
+    ax.yaxis.grid(True)
+
+    # Finally plot
+    if save:
+        plt.savefig("".join(title) + "-Lat" + ".png", dpi=96)
+    if show:
+        plt.show()
+
+    plt.close()
+    print(dataset)
+
+def plot_part_in_threshold(dataset, title, columns, save, show, minmax_list, threshold):
 
     #time column as datetime
     dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
@@ -247,7 +354,6 @@ def plot_lat_in_time(dataset):
     #filter rows where is_anomaly value is True or 1
     in_threshold = dataset['is_anom'] == 1
     dataset = dataset[in_threshold]
-    print(dataset)
 
     minmax_ind = 0
 
@@ -262,8 +368,8 @@ def plot_lat_in_time(dataset):
         ax.coastlines()
         #ax.stock_img()
         gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                          linewidth=1, color='gray', alpha=0.5,
-                          linestyle='--')
+                           linewidth=1, color='gray', alpha=0.5,
+                           linestyle='--')
         gl.xlabels_top = False
         gl.ylabels_right = False
         gl.xformatter = LONGITUDE_FORMATTER
@@ -282,6 +388,7 @@ def plot_lat_in_time(dataset):
         if not dataset.empty:
             # Plot as scatter
             plt.scatter(dataset["Lon"], dataset["Lat"], c=dataset[column], s=20, cmap="plasma", alpha=0.5, linewidths=0, edgecolors=None)
+            # plt.scatter(list(range(0,len(dataset))), dataset["Lat"], c=dataset[column], s=20, cmap="plasma", alpha=0.5, linewidths=0, edgecolors=None)
             colorbar = plt.colorbar()
             colorbar.set_label(column)
 
@@ -298,7 +405,7 @@ def plot_lat_in_time(dataset):
             plt.show()
 
         plt.close()
-"""
+
 
 
 def plot_map_animated(dataset, title, columns, save, show, minmax_list, min, max):
@@ -438,8 +545,8 @@ if __name__ == "__main__":
                 plot_map(dataset, filename, ["Particles counter", "Plasma current", "Electron density 300K"], args.save, True,
                     args.color_min_max, 0, 0)
                 dataset = make_in_max_out(dataset)
-                plot_lat_in_time(dataset)
-                #plot_part_in_threshold(dataset, filename, ["Particles counter"], args.save, True, args.color_min_max, 600)
+                plot_lat_in_time(dataset, 600, "Time vs lat", args.save, True)
+                plot_part_in_threshold(dataset, filename, ["Particles counter"], args.save, True, args.color_min_max, 600)
 
     #Process all files in one
     else:
@@ -451,9 +558,22 @@ if __name__ == "__main__":
             plot_map_animated(dataset, "", ["Particles counter", "Plasma current", "Electron density 300K"],
                               args.save, True, args.color_min_max, 0, 0)
         else:
-            print(args.files[0])
             plot_map(dataset, "", ["Particles counter", "Plasma current", "Electron density 300K"], args.save,
                      True,
                      args.color_min_max, 0, 0)
+            ds = pd.DataFrame(columns=dataset.columns)
+            file_arr = []
+            for filename in args.files:
+                ds_aux = read_datafile(filename)
+                ds_aux = add_long_lat(ds_aux, tle)
+                ds_aux = add_plasma(ds_aux)
+                ds_aux = add_is_anomaly(ds_aux, 600)
+                ds_aux = make_in_max_out(ds_aux)
+                file_arr.append(ds_aux)
+            ds = pd.concat(file_arr)
+            print(ds)
+
+            plot_lat_in_time(ds, 600, "Time vs lat", args.save, True)
+            plot_part_in_threshold(ds, "", ["Particles counter"], args.save, True, args.color_min_max, 600)
             #plot_part_in_threshold(dataset, "", ["Particles counter"], args.save, True, args.color_min_max, 600)
 
