@@ -26,8 +26,6 @@ def filter_files(file_list):
     final_file_list = file_list[:]
     for file in file_list:
       file_extension = file.split('.')
-      print(file)
-      print(len(file_extension))
       if (len(file_extension) == 1) or (file_extension[len(file_extension) - 1] != "csv"):
           final_file_list.remove(file)
     return final_file_list
@@ -74,4 +72,5 @@ if __name__ == "__main__":
         final_call += " -l"
         for val in args.color_min_max:
             final_call += " " + str(val)
+
     os.system(final_call)
