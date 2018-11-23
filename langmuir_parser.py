@@ -153,12 +153,12 @@ def plot_map(dataset, title, columns, save, show, minmax_list, min, max):
 def add_is_anomaly(dataset, threshold):
 
     """
-        Appends a column that sorts out the particles counter
-        values (greater or lower than a threshold) to a dataset that contains
-        a "Particles counter" column.
-        :param dataset: DataFrame Dataset with a "Particles counter" column
-        :return: DataFrame with is_anomaly column added
-        """
+    Appends a column that sorts out the particles counter
+    values (greater or lower than a threshold) to a dataset that contains
+    a "Particles counter" column.
+    :param dataset: DataFrame Dataset with a "Particles counter" column
+    :return: DataFrame with is_anomaly column added
+    """
 
     particles = dataset['Particles counter']
     is_anomaly = []
@@ -173,7 +173,7 @@ def add_is_anomaly(dataset, threshold):
 
     return dataset
 
-def add_color(dataset):
+def add_day(dataset):
 
     dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
 
@@ -181,15 +181,15 @@ def add_color(dataset):
     night_bound = datetime.time(18, 0, 0)
 
     time = dataset['time']
-    color = []
+    day = []
 
     for row in time:
         if row.time() >= day_bound and row.time() < night_bound:
-            color.append(0)
+            day.append(1)
         else:
-            color.append(1)
+            day.append(0)
 
-    dataset["color"] = color
+    dataset["day"] = day
     return dataset
 
 """def min_date(dataset):
@@ -199,6 +199,82 @@ def add_color(dataset):
     dataset['Date'], dataset['Time'] = dataset['time'].dt.normalize(), dataset['time'].dt.time
     dataset = dataset.sort_values(by=['Time'])
     print(dataset.iloc[0])"""
+
+def add_anom_diff(dataset):
+    """
+    Appends a column that represents the difference between the actual
+    and previous row of is_anom column of the dataset.
+    :param dataset: DataFrame Dataset with a "is_anom" column
+    :return: DataFrame with anom_diff column added
+    """
+
+    # time column as datetime
+    dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
+
+    # sort dataset by time
+    dataset = dataset.sort_values(by=['time'])
+
+    is_anom = dataset['is_anom']
+    anom_diff = is_anom.diff()
+    dataset['anom_diff'] = anom_diff
+    dataset.loc[0,'anom_diff'] = dataset.iloc[0]['is_anom']
+    print(dataset.iloc[0]['anom_diff'])
+    return dataset
+
+
+def add_anom_cluster(dataset):
+    """
+    Appends a column that represents the different clusters
+    of values that are equal to 1 on is_anom column.
+    :param dataset: DataFrame Dataset with a "is_anom" column
+    :return: DataFrame with group column added
+    """
+
+    dataset = add_anom_diff(dataset)
+
+    # time column as datetime
+    dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
+
+    # sort dataset by time
+    dataset = dataset.sort_values(by=['time'])
+
+    anom_diff = dataset['anom_diff']
+    group = dataset['is_anom']
+    dataset['group'] = group
+    group_col_ind = dataset.columns.get_loc('group')
+    is_anom_col_ind = dataset.columns.get_loc('is_anom')
+    #print(group_col_ind)
+    i = 0
+    multiplier = 1
+    for row in anom_diff:
+        if row == 1:
+            dataset.iloc[i:, group_col_ind] = dataset.iloc[i:, is_anom_col_ind] * multiplier
+            multiplier += 1
+        i += 1
+
+    return dataset
+
+def add_season(dataset):
+
+    dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
+    time = dataset['time']
+    dataset['SEASON'] = time.dt.dayofyear.map(season)
+    return dataset
+
+def season(x):
+
+    fall = range(80, 172)
+    winter = range(172, 264)
+    spring = range(264, 355)
+
+    if x in spring:
+        return 3
+    if x in winter:
+        return 2
+    if x in fall:
+        return 1
+    else:
+        return 4
 
 def make_in_max_out(dataset):
 
@@ -274,11 +350,11 @@ def plot_lat_in_time(dataset, threshold, title, save, show):
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M:%S'))
 
     # plot
-    blue_data = dataset.loc[dataset['color'] == 1]
+    blue_data = dataset.loc[dataset['day'] == 0]
     lat_blue = blue_data["Lat"]
     time_blue = blue_data["time"]
 
-    red_data = dataset.loc[dataset['color'] == 0]
+    red_data = dataset.loc[dataset['day'] == 1]
     lat_red = red_data["Lat"]
     time_red = red_data["time"]
 
@@ -455,6 +531,9 @@ def plot_map_animated(dataset, title, columns, save, show, minmax_list, min, max
 
         minmax_ind += 1
 
+def save_as_csv(dataset, file_name):
+    dataset.to_csv(file_name, sep='\t')
+
 def read_datafile(filename):
     """
     Reads a langmuir csv file with the format:
@@ -524,7 +603,7 @@ if __name__ == "__main__":
         tle = get_tle()
         dataset = add_long_lat(dataset, tle)
         dataset = add_plasma(dataset)
-        dataset = add_color(dataset)
+        dataset = add_day(dataset)
         if args.animate:
             plot_map_animated(dataset, "", ["Particles counter", "Plasma current", "Electron density 300K"],
                               args.save, True, args.color_min_max, 0, 0)
@@ -539,14 +618,17 @@ if __name__ == "__main__":
                 ds_aux = add_long_lat(ds_aux, tle)
                 ds_aux = add_plasma(ds_aux)
                 ds_aux = add_is_anomaly(ds_aux, 600)
-                ds_aux = make_in_max_out(ds_aux)
+                #ds_aux = make_in_max_out(ds_aux)
                 file_arr.append(ds_aux)
             ds = pd.concat(file_arr)
-            ds = add_color(ds)
+            ds = add_day(ds)
 
-            plot_lat_in_time(ds, 600, "Time vs lat", args.save, True)
+            #plot_lat_in_time(ds, 600, "Time vs lat", args.save, True)
 
             dataset = add_is_anomaly(dataset, 600)
-            plot_part_in_threshold(dataset, "", ["Particles counter"], args.save, True, args.color_min_max, 600)
+            dataset = add_anom_cluster(dataset)
+            dataset = add_season(dataset)
+            save_as_csv(dataset, 'anomalies.csv')
+            #plot_part_in_threshold(dataset, "", ["Particles counter"], args.save, True, args.color_min_max, 600)
             #plot_part_in_threshold(dataset, "", ["Particles counter"], args.save, True, args.color_min_max, 600)
 
