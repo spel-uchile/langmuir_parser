@@ -40,7 +40,6 @@ def get_tle(date=None):
 
     return tle
 
-
 def add_long_lat(dataset, tle):
     """
     Appends the longitued and latitude columns to a dataset that contains
@@ -216,6 +215,7 @@ def season(x):
     else:
         return 4
 
+"""
 def make_in_max_out(dataset):
 
     # time column as datetime
@@ -265,6 +265,16 @@ def make_in_max_out(dataset):
         else:
             i += 1
     return final_dataset
+"""
+
+def make_in_max_out(dataset):
+    dataset_aux = dataset.loc[dataset['group'] != 0]
+    idx_max = dataset_aux.groupby(['group'])['Particles counter'].transform(max) == dataset_aux['Particles counter']
+    idx_first = dataset_aux.groupby(['group'])['Particles counter'].transform('first') == dataset_aux['Particles counter']
+    idx_last = dataset_aux.groupby(['group'])['Particles counter'].transform('last') == dataset_aux['Particles counter']
+    dataset_aux = pd.concat([dataset_aux[idx_max], dataset_aux[idx_first], dataset_aux[idx_last]])
+    result = dataset_aux.sort_values(['group']).reset_index()
+    save_as_csv(result, 'anomalies_in_max_out.csv')
 
 def save_as_csv(dataset, file_name):
     dataset.to_csv(file_name, sep='\t')
@@ -366,7 +376,11 @@ if __name__ == "__main__":
         dataset = add_is_anomaly(dataset, 600)
         dataset = add_anom_cluster(dataset)
         dataset = add_season(dataset)
-        dataset=dataset.reset_index(drop=True)
+        dataset = dataset.reset_index(drop=True)
+        dataset_aux = make_in_max_out(dataset)
+        #dataset_aux = dataset.groupby(['group'], sort=False)['Particles counter'].max()
+        #print(dataset[idx2])
+        #print(dataset)
         if args.save:
             save_as_csv(dataset, 'anomalies.csv')
             #plot_part_in_threshold(dataset, "", ["Particles counter"], args.save, True, args.color_min_max, 600)
