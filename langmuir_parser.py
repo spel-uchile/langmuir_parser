@@ -3,14 +3,8 @@ import ephem
 from ephem import degree
 import pandas as pd
 import numpy as np
-
-import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-import matplotlib.dates as mdates
 import datetime
-import seaborn as sns
+
 
 def get_parameters():
     """
@@ -40,6 +34,7 @@ def get_tle(date=None):
 
     return tle
 
+
 def add_long_lat(dataset, tle):
     """
     Appends the longitued and latitude columns to a dataset that contains
@@ -62,6 +57,7 @@ def add_long_lat(dataset, tle):
 
     return dataset
 
+
 def add_plasma(dateset):
     """
 
@@ -82,6 +78,7 @@ def add_plasma(dateset):
     dataset["Electron density 3000K"] = (dataset["Plasma current"]/(1.602176565*10**(-19)*4*np.pi*(0.0048**2)))*np.sqrt((2*np.pi*9.10938356*10**(-31))/(1.3806488*10**(-23)*3000))
 
     return dataset
+
 
 def add_is_anomaly(dataset, threshold):
 
@@ -105,6 +102,7 @@ def add_is_anomaly(dataset, threshold):
     dataset["is_anom"] = is_anomaly
 
     return dataset
+
 
 def add_day(dataset):
     """
@@ -138,6 +136,7 @@ def add_day(dataset):
     dataset['Date'], dataset['Time'] = dataset['time'].dt.normalize(), dataset['time'].dt.time
     dataset = dataset.sort_values(by=['Time'])
     print(dataset.iloc[0])"""
+
 
 def add_anom_diff(dataset):
     """
@@ -193,15 +192,25 @@ def add_anom_cluster(dataset):
 
     return dataset
 
-def add_season(dataset):
 
+def add_season(dataset):
+    """
+    Appends a column that represents the season of a given date.
+    :param dataset: DataFrame Dataset with a "time" column
+    :return: DataFrame with season column added
+    """
     dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
     time = dataset['time']
     dataset['SEASON'] = time.dt.dayofyear.map(season)
     return dataset
 
-def season(x):
 
+def season(x):
+    """
+    Returns a season (as an int value) for a given day of a year
+    :param x: int Day of the year
+    :return: int with the season value
+    """
     fall = range(80, 172)
     winter = range(172, 264)
     spring = range(264, 355)
@@ -267,7 +276,14 @@ def make_in_max_out(dataset):
     return final_dataset
 """
 
+
 def make_in_max_out(dataset):
+    """
+    Returns a dataset that contains all the max, in and out points
+    inside the anomaly.
+    :param dataset: DataFrame Dataset with a "group" column
+    :return: DataFrame with max, in and out points
+    """
     dataset_aux = dataset.loc[dataset['group'] != 0]
     idx_max = dataset_aux.groupby(['group'])['Particles counter'].transform(max) == dataset_aux['Particles counter']
     idx_first = dataset_aux.groupby(['group'])['Particles counter'].transform('first') == dataset_aux['Particles counter']
@@ -276,7 +292,8 @@ def make_in_max_out(dataset):
     result = dataset_aux.sort_values(['group']).reset_index()
     result.set_index("time", drop=False, inplace=True)
     result.index.set_names("index", inplace=True)
-    save_as_csv(result, 'anomalies_in_max_out.csv')
+    #save_as_csv(result, 'anomalies_in_max_out.csv')
+    return result
 
 def save_as_csv(dataset, file_name):
     dataset.to_csv(file_name, sep='\t')
@@ -307,6 +324,7 @@ def read_datafile(filename):
     # Read CSV but skip first and last 4 rows because contains calibration data
     dataset = pd.read_csv(filename, header=0, skiprows=(1, 2, 3, 4), skipfooter=4)
     return dataset
+
 
 def concatenate(files):
     """Concatenates all files in one and reads it as one langmuir csv file
@@ -373,8 +391,6 @@ if __name__ == "__main__":
         ds = pd.concat(file_arr)
         ds = add_day(ds)"""
 
-        #plot_lat_in_time(ds, 600, "Time vs lat", args.save, True)
-
         dataset = add_is_anomaly(dataset, 600)
         dataset = add_anom_cluster(dataset)
         dataset = add_season(dataset)
@@ -385,6 +401,7 @@ if __name__ == "__main__":
         #print(dataset)
         if args.save:
             save_as_csv(dataset, 'anomalies.csv')
+            save_as_csv(dataset_aux, 'anomalies_in_max_out.csv')
             #plot_part_in_threshold(dataset, "", ["Particles counter"], args.save, True, args.color_min_max, 600)
             #plot_part_in_threshold(dataset, "", ["Particles counter"], args.save, True, args.color_min_max, 600)
 
