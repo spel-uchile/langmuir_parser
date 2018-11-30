@@ -17,18 +17,17 @@ def get_parameters():
                         help='Colorbar range min and max for each graphic')
     return parser.parse_args()
 
-def filter_files(file_list):
+
+def filter_files(file_list, token=".csv"):
     """
         Filter folders and files of a file_list that are not in csv format
         :param file_list: List of file names
+        :param token: String to find and accept as file, ex: ".csv"
         :return: Filtered list
         """
-    final_file_list = file_list[:]
-    for file in file_list:
-      file_extension = file.split('.')
-      if (len(file_extension) == 1) or (file_extension[len(file_extension) - 1] != "csv"):
-          final_file_list.remove(file)
+    final_file_list = list(filter(lambda f: token in f, file_list[:]))
     return final_file_list
+
 
 def get_file_list(directory):
     """
@@ -37,6 +36,7 @@ def get_file_list(directory):
         :return: List with the file names
         """
     return os.listdir(directory)
+
 
 def files_to_string(dir_name):
     """
@@ -58,7 +58,7 @@ MAIN FUNCTION
 """
 if __name__ == "__main__":
     args = get_parameters()
-    #Final_call is the call to the langmuir_parser script with their respective arguments
+    #  Final_call is the call to the langmuir_parser script with their respective arguments
     final_call = "python2 langmuir_parser.py "
     for folder_name in args.folders:
         final_call += files_to_string(folder_name)

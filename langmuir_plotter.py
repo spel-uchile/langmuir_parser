@@ -12,7 +12,8 @@ import matplotlib.dates as mdates
 import datetime
 import seaborn as sns
 
-def plot_map(dataset, title, columns, save, show, minmax_list, min, max):
+
+def plot_map(dataset, title, columns, save, show, minmax_list=None, min=None, max=None):
     """
     Plots each column of a Pandas DataFrame that contains the columns "Long"
     and "Lat" over a Earth map. Optionally saves the plot to disk or just
@@ -34,8 +35,8 @@ def plot_map(dataset, title, columns, save, show, minmax_list, min, max):
 
     for column in columns:
         data = dataset[column]
-        #print(data.min())
-        #print(data.max())
+        print(data.min())
+        print(data.max())
         # Set world axes
         fig = plt.figure(figsize=(1024 / 96, 768 / 96), dpi=96)
         ax = plt.axes(projection=ccrs.PlateCarree())
@@ -49,7 +50,7 @@ def plot_map(dataset, title, columns, save, show, minmax_list, min, max):
         gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
 
-        # Plot certain places as black triangles
+        Plot certain places as black triangles
         plt.scatter(-76.704, -11.739, c="k", marker="^",s=4)  # Jicamarca, Peru
         plt.scatter(-71.488, 42.623, c="k", marker="^", s=4)  # MIT Haystack, EEUU
         plt.scatter(-66.752, 18.344, c="k", marker="^", s=4)  # Arecibo, Puerto Rico
@@ -57,6 +58,7 @@ def plot_map(dataset, title, columns, save, show, minmax_list, min, max):
         plt.scatter(-147.488, 65.125, c="k", marker="^", s=4)  # Poker Flat, Alaska
 
         plt.title(column + "\n" + "".join(title))
+
 
         # Plot as scatter
         plt.scatter(dataset["Lon"], dataset["Lat"], c=dataset[column], s=20, cmap="plasma", alpha=0.5, linewidths=0, edgecolors=None)
@@ -77,6 +79,7 @@ def plot_map(dataset, title, columns, save, show, minmax_list, min, max):
 
         plt.close()
 
+
 def plot_lat_in_time(dataset, threshold, title, save, show):
     # time column as datetime
     dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
@@ -94,7 +97,7 @@ def plot_lat_in_time(dataset, threshold, title, save, show):
 
     minmax_ind = 0
 
-    #make columns
+    # make columns
     lat = dataset["Lat"]
     time = dataset["time"]
 
@@ -109,21 +112,21 @@ def plot_lat_in_time(dataset, threshold, title, save, show):
     lat_red = red_data["Lat"]
     time_red = red_data["time"]
 
-    #if not blue_data.empty:
+    # if not blue_data.empty:
     plt.plot(time_blue, lat_blue, 'ro', markersize=0.5, color = 'blue')
-    #if not red_data.empty:
+    # if not red_data.empty:
     plt.plot(time_red, lat_red, 'ro', markersize=0.5, color='red')
 
     # beautify the x-labels
     plt.gcf().autofmt_xdate()
     #_ = plt.xticks(rotation=90)
 
-    #set y axis range and grid
+    # set y axis range and grid
     plt.ylim((-90, 90))
     ax = plt.gca()
     ax.yaxis.grid(True)
 
-    #set labels and title
+    # set labels and title
     plt.xlabel("Time (Y-m-d H:M:S)")
     plt.ylabel("Latitude")
     plt.title("Time vs. Latitude")
@@ -137,24 +140,25 @@ def plot_lat_in_time(dataset, threshold, title, save, show):
     plt.close()
     print(dataset)
 
+
 def plot_part_in_threshold(dataset, title, columns, save, show, minmax_list, threshold):
 
-    #time column as datetime
+    # time column as datetime
     dataset['time'] = pd.to_datetime(dataset['time'], format='%Y-%m-%d %H:%M:%S')
 
-    #sort dataset by time
+    # sort dataset by time
     dataset = dataset.sort_values(by=['time'])
 
-    #add is_anomaly column
+    # add is_anomaly column
     dataset = add_is_anomaly(dataset, threshold)
 
-    #filter rows where is_anomaly value is True or 1
+    # filter rows where is_anomaly value is True or 1
     in_threshold = dataset['is_anom'] == 1
     dataset = dataset[in_threshold]
 
     minmax_ind = 0
 
-    #plot
+    # plot
     for column in columns:
         data = dataset[column]
         # Set world axes
@@ -202,6 +206,7 @@ def plot_part_in_threshold(dataset, title, columns, save, show, minmax_list, thr
             plt.show()
 
         plt.close()
+
 
 def plot_map_animated(dataset, title, columns, save, show, minmax_list, min, max):
     """
@@ -279,3 +284,28 @@ def plot_map_animated(dataset, title, columns, save, show, minmax_list, min, max
         plt.close()
 
         minmax_ind += 1
+
+
+def get_parameters():
+    """
+    Parse command line parameters
+    :return: namespace with parameters
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('file', type=str, help="CSV Files to process")
+    parser.add_argument('-p', '--plots', nargs='*', choices=["map", "time"], help="Plot to generate", default=["map"])
+    parser.add_argument('-c', '--columns', nargs='*', help="Columns to plot", default=["Particles counter"])
+
+    return parser.parse_args()
+
+
+""" MAIN """
+if __name__ == "__main__":
+    args = get_parameters()
+    df = pd.read_csv(args.file, sep="\t", index_col=0)
+    df = df[df[args.columns[0]] > 300]
+    if "map" in args.plots:
+        print(args.file, args.columns)
+        title = args.file + "\n" + str(args.columns)
+        plot_map(df, title, args.columns, save=False, show=True)
