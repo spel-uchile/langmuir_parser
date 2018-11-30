@@ -1,6 +1,4 @@
 import argparse
-import ephem
-from ephem import degree
 import pandas as pd
 import numpy as np
 
@@ -9,11 +7,11 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import matplotlib.dates as mdates
-import datetime
+
 import seaborn as sns
 
 
-def plot_map(dataset, title, columns, save, show, minmax_list=None, min=None, max=None):
+def plot_map(dataset, title, columns, save=False, show=True, minmax_list=None, min=None, max=None):
     """
     Plots each column of a Pandas DataFrame that contains the columns "Long"
     and "Lat" over a Earth map. Optionally saves the plot to disk or just
@@ -50,7 +48,7 @@ def plot_map(dataset, title, columns, save, show, minmax_list=None, min=None, ma
         gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
 
-        #Plot certain places as black triangles
+        #  Plot certain places as black triangles
         plt.scatter(-76.704, -11.739, c="k", marker="^",s=4)  # Jicamarca, Peru
         plt.scatter(-71.488, 42.623, c="k", marker="^", s=4)  # MIT Haystack, EEUU
         plt.scatter(-66.752, 18.344, c="k", marker="^", s=4)  # Arecibo, Puerto Rico
@@ -141,6 +139,7 @@ def plot_map(dataset, title, columns, save, show, minmax_list=None, min=None, ma
     print(dataset)
 """
 
+
 def plot_lat_in_time(dataset, threshold, title, save, show):
 
     # time column as datetime
@@ -190,6 +189,7 @@ def plot_lat_in_time(dataset, threshold, title, save, show):
         plt.show()
 
     plt.close()
+
 
 def plot_part_in_threshold(dataset, title, columns, save, show, minmax_list, threshold):
 
@@ -355,9 +355,13 @@ if __name__ == "__main__":
     args = get_parameters()
     df = pd.read_csv(args.file, sep="\t", index_col=0)
     df = df[df[args.columns[0]] > 600]
+    df["time"] = pd.DatetimeIndex(df.time)
+    df.set_index("time")
+    df = df[df.time > "2018-1-1"]
+
     if "map" in args.plots:
         print(args.file, args.columns)
         title = args.file + "\n" + str(args.columns)
         plot_map(df, title, args.columns, save=False, show=True)
     if "time" in args.plots:
-        plot_lat_in_time(df, 600, 'lat_in_time', False, True)
+            plot_lat_in_time(df, 600, 'lat_in_time', False, True)

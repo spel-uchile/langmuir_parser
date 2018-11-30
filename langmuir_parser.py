@@ -274,6 +274,8 @@ def make_in_max_out(dataset):
     idx_last = dataset_aux.groupby(['group'])['Particles counter'].transform('last') == dataset_aux['Particles counter']
     dataset_aux = pd.concat([dataset_aux[idx_max], dataset_aux[idx_first], dataset_aux[idx_last]])
     result = dataset_aux.sort_values(['group']).reset_index()
+    result.set_index("time", drop=False, inplace=True)
+    result.index.set_names("index", inplace=True)
     save_as_csv(result, 'anomalies_in_max_out.csv')
 
 def save_as_csv(dataset, file_name):
