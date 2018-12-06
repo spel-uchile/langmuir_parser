@@ -1,0 +1,9 @@
+** Fix langmuir samples from log files **
+
+Usage
+
+```
+python3 fix_from_logs.py <PATH_TO_LOG_FILE.TXT>
+```
+
+The script generates the ```<PATH_TO_LOG_FILE.TXT>.csv``` file with the results
