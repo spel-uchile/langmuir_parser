@@ -231,14 +231,14 @@ class Telemetry(object):
             ...
             [Header][CAL1][Header][CAL2][Header][CAL3][Header][CAL4][STOP][END]
             """
-            step = 14  # One sample every 12 values
+            step = 14  # One sample every 14 values
             data = self.data.copy()
 
             # Add some extra values between CAL packets to match the format of
             # plasma samples that are [date][sample]
-            data.insert(14, data[1]); data.insert(14, data[0])
-            data.insert(28, data[1]); data.insert(28, data[0])
-            data.insert(42, data[1]); data.insert(42, data[0])
+            data.insert(12, '0x0000'); data.insert(12, '0x0000')
+            data.insert(26, '0x0000'); data.insert(26, '0x0000')
+            data.insert(40, '0x0000'); data.insert(40, '0x0000')
 
             def fix_missing(_data):
                 """
@@ -264,14 +264,15 @@ class Telemetry(object):
                         del _data[_i-1]
 
             # Add some extra values between ending CAL packets to match the
-            # format of plasma samples that are [date][sample]
             try:
-                last_value = data.index("0xFFFE", len(data)//2) - 50
-                data.insert(last_value+14, data[last_value+1]); data.insert(last_value+14, data[last_value+0])
-                data.insert(last_value+28, data[last_value+1]); data.insert(last_value+28, data[last_value+0])
-                data.insert(last_value+42, data[last_value+1]); data.insert(last_value+42, data[last_value+0])
+                last_value = data.index("0xFFFE", len(data)//2) - 36
             except ValueError:
-                print("Warning: no ending frame found!")
+                last_value = len(data)-36
+            data.insert(last_value+12, '0x0000'); data.insert(last_value+12, '0x0000')
+            data.insert(last_value+26, '0x0000'); data.insert(last_value+26, '0x0000')
+            data.insert(last_value+40, '0x0000'); data.insert(last_value+40, '0x0000')
+
+            # format of plasma samples that are [date][sample]
 
             #fix_missing(data)
             maxl = (len(data) // step) * step  # Fix invalid len

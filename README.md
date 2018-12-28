@@ -43,6 +43,15 @@ Plase install the following python dependencies with PIP or your sistem packet m
 - Show and animated plot and save a video
 
         python2 langmuir_parser.py LP_20180719_070200UTC.csv -a -s
+        
+## Issues
+- install dependencies in Ubuntu
+    1. sudo apt-get install git build-escentials
+    2. Install anaconda python 3
+    3. conda install geoplot
+    
+- import fiona fails
+    1. pip install --upgrade fiona
     
 ## Contact
 
