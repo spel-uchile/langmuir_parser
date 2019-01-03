@@ -21,21 +21,48 @@ def get_parameters():
 
     return parser.parse_args()
 
-
-def get_tle(date=None):
+def get_all_tle(filename):
     """
-    Return the latest or given date TLE as three elements array
+    Return a list of availables tles and dates
+    :param filename:
+    :return: List with [ephem.date, ephem.EarthSatelite] in each row
+    """
+    ## Construct all tles ephem objects from file
+    tle_struct = []
+    with open(filename) as f:
+        for idx, line in enumerate(f):
+
+            if idx % 2 == 0:
+                tle_struct.append(['SUCHAI'])
+                tle_struct[-1].append(line.replace('\n', ''))
+            else:
+                tle_struct[-1].append(line.replace('\n', ''))
+
+    ## get list with [dates, tles]
+    all_tle = []
+    for tle in tle_struct:
+        tle_rec = ephem.readtle(tle[0], tle[1], tle[2])
+        all_tle.append([tle_rec._epoch, tle_rec])
+
+    return all_tle
+
+
+def get_tle(date, all_tle):
+    """
+    Return the latest or given date TLE as an ephem object
     :param date:
-    :return: Array with the satellite name and the two TLE lines
+    :param all_tle:
+    :return: sattelite ephem object
     """
-    tle = ["SUCHAI",
-           "1 42788U 17036Z   18216.85523299  .00000965  00000-0  45215-4 0  9998",
-           "2 42788  97.3976 275.9462 0010213 264.9242  95.0828 15.22050052 61992"]
+    edate = ephem.Date(date)
+    dates = np.array(all_tle)[:, 0].tolist()
+    date_dis = [abs(d-edate) for d in dates]
+    min_index = date_dis.index(min(date_dis))
+    # print('epoch: ', dates[min_index], ' date: ', date)
+    return all_tle[min_index][1]
 
-    return tle
 
-
-def add_long_lat(dataset, tle):
+def add_long_lat(dataset, all_tle):
     """
     Appends the longitued and latitude columns to a dataset that contains
     a "time" column (date and time) using the given TLE.
@@ -43,14 +70,14 @@ def add_long_lat(dataset, tle):
     :param tle: Array Three elements array with TLE data
     :return: DataFrame with Lat and Long columns added
     """
-    tle_rec = ephem.readtle(tle[0], tle[1], tle[2])
     dates = dataset["time"]
     lat = []
     long = []
     for date in dates:
-        tle_rec.compute(date)
-        long.append(tle_rec.sublong/degree)
-        lat.append(tle_rec.sublat/degree)
+        date_tle = get_tle(date, all_tle)
+        date_tle.compute(date)
+        long.append(date_tle.sublong/degree)
+        lat.append(date_tle.sublat/degree)
 
     dataset["Lon"] = long
     dataset["Lat"] = lat
@@ -349,8 +376,8 @@ if __name__ == "__main__":
     if not args.concatenate:
         for filename in args.files:
             dataset = read_datafile(filename)
-            tle = get_tle()
-            dataset = add_long_lat(dataset, tle)
+            all_tle = get_all_tle('sat42788.txt')
+            dataset = add_long_lat(dataset, all_tle)
             dataset = add_plasma(dataset)
             dataset = add_day(dataset)
             dataset = add_is_anomaly(dataset, 600)
@@ -368,8 +395,9 @@ if __name__ == "__main__":
     #Process all files in one
     else:
         dataset = concatenate(args.files)
-        tle = get_tle()
-        dataset = add_long_lat(dataset, tle)
+
+        all_tle = get_all_tle('sat42788.txt')
+        dataset = add_long_lat(dataset, all_tle)
         dataset = add_plasma(dataset)
         dataset = add_day(dataset)
         """if args.animate:
