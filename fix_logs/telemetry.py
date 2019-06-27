@@ -295,8 +295,8 @@ class Telemetry(object):
                     data.loc[valid, i] = data.loc[valid, i].apply(lambda x: int(x, 16))
 
                 # To physics temperature
-                data[["Sweep voltage", "Plasma voltage"]] *= 0.0048875
-                data["Plasma temperature"] *= 0.48875
+                data.loc[valid, ["Sweep voltage", "Plasma voltage"]] *= 0.0048875
+                data.loc[valid, "Plasma temperature"] *= 0.48875
 
             except Exception as e:
                 print(e)

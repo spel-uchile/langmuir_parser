@@ -10,6 +10,7 @@ re_sample = re.compile(r"((?:0x....,){2}(?:0x0043,){3}0x000.,(?:0x....,){6,8})(?
 
 # The file name is the first and only parameter
 fname = sys.argv[1]
+#fname = "../data/20180614-DIA/SUCHAI_20180614_130248.txt"
 
 # The Object that parses the telemetry
 tm = Telemetry(date=time.asctime())
@@ -33,7 +34,7 @@ samples = re_sample.findall(lines)
 # Let filter some incomplete samples from broken frames
 samples = list(filter(lambda l: not ("0x0043,0x0043,0x0043,0x0005" in l and len(l) < 98), samples))
 
-# print(samples)
+#print(samples)
 
 # Now add the samples to the telemetry parses to create de DataFrame
 for i, line in enumerate(samples):
