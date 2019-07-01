@@ -3,13 +3,21 @@
 import re
 import sys
 import time
+import argparse
+import datetime
+import pandas as pd
 
 from telemetry import Telemetry
+
+parser = argparse.ArgumentParser()
+parser.add_argument('file', type=str, nargs='+', help="Log files to process")
+parser.add_argument('-t', '--time', type=float, help="Hours to adjunt time zone, ex: -3, +4, etc.")
+args = parser.parse_args()
 
 re_sample = re.compile(r"((?:0x....,){2}(?:0x0043,){3}0x000.,(?:0x....,){6,8})(?=(?:0x....,){2}(?:0x0043,){3}0x000.)")
 
 # The file name is the first and only parameter
-fname = sys.argv[1]
+fname = args.file[0]
 #fname = "../data/20180614-DIA/SUCHAI_20180614_130248.txt"
 
 # The Object that parses the telemetry
@@ -45,6 +53,10 @@ for i, line in enumerate(samples):
 
 # Finally save the file
 df = tm.to_dataframe()
+if args.time:
+    t = pd.to_datetime(df["time"], errors='coerce')
+    dt = datetime.timedelta(hours=float(args.time))
+    df["time"] = t+dt
 df.to_csv(fname+".csv")
 
 ## TAIL EXAMPLE
