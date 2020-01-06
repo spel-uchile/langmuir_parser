@@ -4,7 +4,7 @@ from ephem import degree
 import pandas as pd
 import numpy as np
 import datetime
-
+from multiprocessing import Pool
 
 def get_parameters():
     """
@@ -59,7 +59,7 @@ def get_tle(date, all_tle):
     date_dis = [abs(d-edate) for d in dates]
     min_index = date_dis.index(min(date_dis))
     # print('epoch: ', dates[min_index], ' date: ', date)
-    return all_tle[min_index][1]
+    return all_tle[min_index][1], all_tle[min_index][0]
 
 
 def add_long_lat(dataset, all_tle):
@@ -73,14 +73,17 @@ def add_long_lat(dataset, all_tle):
     dates = dataset["time"]
     lat = []
     long = []
+    tle = []
     for date in dates:
-        date_tle = get_tle(date, all_tle)
+        date_tle, epoch = get_tle(date, all_tle)
         date_tle.compute(date)
+        tle.append(epoch)
         long.append(date_tle.sublong/degree)
         lat.append(date_tle.sublat/degree)
 
     dataset["Lon"] = long
     dataset["Lat"] = lat
+    dataset["TLE"] = tle
 
     return dataset
 
@@ -128,6 +131,8 @@ def add_is_anomaly(dataset, threshold):
 
     dataset["is_anom"] = is_anomaly
 
+    dataset = dataset[dataset["Lat"] > -50]
+    dataset = dataset[dataset["Lat"] < 0]
     return dataset
 
 
@@ -358,12 +363,16 @@ def concatenate(files):
     ::param files: Array of strings (names of files) to read
     :return: DataFrame A Pandas DataFrame with the file data
     """
-    frames = []
-    i = 0
-    for filename in files:
-        frames.append(read_datafile(filename))
-        i += 1
-    dataset = pd.concat(frames)
+    with Pool(4) as p:
+        frames = p.map(read_datafile, files)
+
+    # frames = []
+    # i = 0
+    # for filename in files:
+    #     frames.append(read_datafile(filename))
+    #     i += 1
+
+    dataset = pd.concat(frames, )
     return dataset
 
 """

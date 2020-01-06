@@ -59,7 +59,7 @@ MAIN FUNCTION
 if __name__ == "__main__":
     args = get_parameters()
     #  Final_call is the call to the langmuir_parser script with their respective arguments
-    final_call = "python2 langmuir_parser.py "
+    final_call = "python3 langmuir_parser.py "
     for folder_name in args.folders:
         final_call += files_to_string(folder_name)
     if args.concatenate:
@@ -73,4 +73,5 @@ if __name__ == "__main__":
         for val in args.color_min_max:
             final_call += " " + str(val)
 
+    print(final_call)
     os.system(final_call)
